@@ -240,6 +240,21 @@ function scenarioInvalidCliFlag(repoPath) {
   };
 }
 
+// Checks process.env first (in case the target's own npm script loads .env
+// itself), then falls back to reading .env off disk directly. Deliberately
+// dependency-free (plain fs, no require('dotenv')) since it runs with cwd
+// set to the TARGET repo — that repo's node_modules may not have dotenv
+// installed, and we can't rely on Anvil's own node_modules from there.
+// A fix command in the same process pool can never make process.env.X true
+// for a LATER, separately-spawned verify process (env vars don't propagate
+// between sibling child_process.exec() calls) — the file check is the only
+// avenue a single bash command actually has to make this scenario passable.
+// The regex tolerates whitespace around '=' and the value, and optional
+// quotes — confirmed live that cmd.exe's `echo VAR=1 > .env` leaves a
+// trailing space before the line ending, which a real .env parser like
+// dotenv would trim without issue, so a byte-exact match is too strict.
+const REQUIRED_ENV_CHECK_SCRIPT = `node -e "const fs=require('fs'); let fromFile=''; try{fromFile=fs.readFileSync('.env','utf8')}catch(e){}; const ok=process.env.ANVIL_REQUIRED_TEST_VAR || /^[ \\t]*ANVIL_REQUIRED_TEST_VAR[ \\t]*=[ \\t]*[\\x22\\x27]?1[\\x22\\x27]?[ \\t]*$/m.test(fromFile); if(!ok){throw new Error('Missing required environment variable: ANVIL_REQUIRED_TEST_VAR')}"`;
+
 function scenarioMissingEnv(repoPath) {
   const envPath = path.join(repoPath, '.env');
   const { pkg } = readPackageJson(repoPath);
@@ -252,7 +267,11 @@ function scenarioMissingEnv(repoPath) {
       scenarioName: 'missing-env',
       description: 'Temporarily renamed .env to simulate missing environment variables',
       targetFile: envPath,
-      testCommand: scriptName ? `npm run ${scriptName}` : 'node -e "process.exit(1)"'
+      // Falls back to the same file-based check as the no-.env branch below
+      // when there's no test/build/typecheck/lint script to run instead —
+      // an unconditional process.exit(1) here would never be fixable by any
+      // bash command, the same structural bug the no-.env branch had.
+      testCommand: scriptName ? `npm run ${scriptName}` : REQUIRED_ENV_CHECK_SCRIPT
     };
   }
 
@@ -261,7 +280,7 @@ function scenarioMissingEnv(repoPath) {
     scenarioName: 'missing-env',
     description: 'No .env present; simulating a required-but-missing environment variable',
     targetFile: null,
-    testCommand: 'node -e "if(!process.env.ANVIL_REQUIRED_TEST_VAR){throw new Error(\'Missing required environment variable: ANVIL_REQUIRED_TEST_VAR\')}"'
+    testCommand: REQUIRED_ENV_CHECK_SCRIPT
   };
 }
 
