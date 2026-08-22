@@ -1,0 +1,8 @@
+node_modules/
+.env
+data/metrics.json
+data/bugs.json
+*.log
+daemon.pid
+*.tmp.mjs
+.claude/

@@ -1,0 +1,31 @@
+{
+  "name": "anvil",
+  "version": "1.0.0",
+  "description": "Universal 24/7 Autonomous Agentic Stress-Testing Framework for NexusMem and any Local-first AI Context Engine, powered by Google Gemini.",
+  "type": "module",
+  "main": "daemon.js",
+  "scripts": {
+    "start": "node daemon.js",
+    "dev": "node daemon.js"
+  },
+  "keywords": [
+    "agentic",
+    "stress-testing",
+    "chaos-engineering",
+    "nexusmem",
+    "gemini",
+    "autonomous-agent",
+    "24-7",
+    "context-engine"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^0.3.0",
+    "chalk": "^5.3.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
