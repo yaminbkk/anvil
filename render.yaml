@@ -5,7 +5,7 @@ services:
     plan: starter
     buildCommand: >-
       npm install &&
-      (test -d "$TARGET_REPO_PATH/.git" || git clone --depth 1 "$TARGET_REPO_GIT_URL" "$TARGET_REPO_PATH") &&
+      (test -d "$TARGET_REPO_PATH/.git" || (rm -rf "$TARGET_REPO_PATH" && git clone --depth 1 "$TARGET_REPO_GIT_URL" "$TARGET_REPO_PATH")) &&
       (cd "$TARGET_REPO_PATH" && npm install)
     startCommand: node daemon.js
     envVars:
