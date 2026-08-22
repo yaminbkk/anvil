@@ -8,7 +8,7 @@ Anvil runs forever as a background daemon, powered by the **Google Gemini API** 
 
 ## How it works
 
-Every 30–60 seconds, Anvil runs one full cycle:
+Every 10–15 minutes, Anvil runs one full cycle:
 
 1. **Chaos Injection** — `src/chaos-injector.js` randomly picks 1 of 8 failure scenarios and injects it into the target repository:
    - Syntax errors
@@ -25,7 +25,7 @@ Every 30–60 seconds, Anvil runs one full cycle:
 5. **Benchmarking** — `src/evaluator.js` records the outcome to `data/metrics.json` (total runs, success rate %, recovery time) and logs any unrecoverable case to `data/bugs.json`.
 6. **Restoration** — `src/chaos-injector.js` runs `git reset --hard && git clean -fd` in a `finally` block, guaranteeing every cycle starts from a clean baseline — no matter what happened.
 
-The entire loop is wrapped in defensive `try/catch/finally` blocks so that **Anvil itself never crashes**, even while running unattended for weeks on a platform like [Render.com](https://render.com) as a Background Worker, hammering NexusMem (or any other target) with thousands of failure scenarios a day.
+The entire loop is wrapped in defensive `try/catch/finally` blocks so that **Anvil itself never crashes**, even while running unattended for weeks on a platform like [Render.com](https://render.com) as a Background Worker, hammering NexusMem (or any other target) with roughly a hundred failure scenarios a day at the default 10–15 minute cadence (the cadence is a cost/coverage tradeoff against the Gemini API's per-call cost — see "Cost" below — not a hard limit; lower `MIN_DELAY_MS`/`MAX_DELAY_MS` in `daemon.js` for tighter coverage if your budget allows).
 
 ## Project structure
 
@@ -102,6 +102,12 @@ Prefer manual setup instead of the Blueprint? Configure a Background Worker dire
 ```
 
 Unrecoverable cases — where Gemini's fix could not restore a `0` exit code — are appended to `data/bugs.json` for later triage.
+
+## Cost
+
+`gemini-3.6-flash`/`gemini-3.7-flash` are reasoning models — most of what they're billed for on each call is invisible "thinking" tokens spent before the visible one-line answer (confirmed live: 242–643 thinking tokens per call, against a ~10-token answer). Thinking tokens bill as **output** ($3.75 / 1M tokens), not input ($0.75 / 1M), so a single Anvil round costs roughly **$0.001–$0.003**. `thinkingConfig.thinkingBudget: 0` does not suppress this on either model — the only real lever is call frequency.
+
+The free tier caps out at **20 requests/day per model** (40/day combined across the primary + `gemini-flash-latest` fallback), which a 24/7 daemon exhausts within hours. At the default 10–15 minute cadence, a paid tier runs roughly **$2–5/day per running instance** — local and Render deployments share the same quota and billing if they use the same `GEMINI_API_KEY`, so running both roughly doubles it.
 
 ## License
 

@@ -74,7 +74,7 @@ export async function requestFix({ errorLog, commandOutput, repoContext } = {}) 
   const userPrompt = buildUserPrompt({ errorLog, commandOutput, repoContext });
 
   const models = [MODEL, FALLBACK_MODEL];
-  let lastError = null;
+  const errorsByModel = [];
 
   for (const model of models) {
     try {
@@ -97,9 +97,14 @@ export async function requestFix({ errorLog, commandOutput, repoContext } = {}) 
       const text = response?.text ?? '';
       return sanitizeToSingleLine(text);
     } catch (err) {
-      lastError = err;
+      // Keep every model's failure reason, not just the last one — a
+      // combined "failed on all models" error that only showed the fallback's
+      // message made the primary model's actual failure invisible (found
+      // live: a 429 quota error from the fallback masked why gemini-3.6-flash
+      // itself had already failed).
+      errorsByModel.push(`${model}: ${err?.message ?? 'unknown error'}`);
     }
   }
 
-  throw new Error(`Anvil: Gemini request failed on all models — ${lastError?.message ?? 'unknown error'}`);
+  throw new Error(`Anvil: Gemini request failed on all models — ${errorsByModel.join(' | ')}`);
 }

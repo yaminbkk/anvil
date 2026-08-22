@@ -8,8 +8,8 @@ import { requestFix } from './src/gemini-agent.js';
 import { recordResult, recordBug } from './src/evaluator.js';
 
 const TARGET_REPO_PATH = path.resolve(process.env.TARGET_REPO_PATH || '.');
-const MIN_DELAY_MS = 30_000;
-const MAX_DELAY_MS = 60_000;
+const MIN_DELAY_MS = 10 * 60_000;
+const MAX_DELAY_MS = 15 * 60_000;
 
 function sleep(ms) {
   return new Promise((resolve) => {
