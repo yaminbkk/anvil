@@ -71,11 +71,20 @@ This starts `daemon.js`, which runs forever until the process is stopped.
 
 ## Deploying to Render.com
 
-Anvil is designed to run as a **Background Worker**:
+Anvil is designed to run as a **Background Worker**, and ships with a [`render.yaml`](render.yaml) Blueprint so most of the setup is pre-configured. To deploy:
 
+1. In the Render dashboard: **New > Blueprint**, connect this GitHub repo, and let Render read `render.yaml`.
+2. Fill in the two secret env vars it prompts for:
+   - `GEMINI_API_KEY` — your Gemini API key.
+   - `TARGET_REPO_GIT_URL` — the git URL of the repo Anvil should stress-test (e.g. NexusMem's clone URL). The build step clones it fresh into `TARGET_REPO_PATH` if it isn't already there.
+3. Deploy. Render runs `npm install` + the clone step as the build, then `node daemon.js` as the worker process.
+
+The worker's filesystem is ephemeral by default: every redeploy re-clones the target repo from scratch (a clean baseline) and resets `data/metrics.json`/`data/bugs.json`. If you want the benchmark history to survive redeploys, attach a [Render Disk](https://render.com/docs/disks) mounted over `data/` — not included in the Blueprint by default since it's a paid add-on.
+
+Prefer manual setup instead of the Blueprint? Configure a Background Worker directly with:
 - **Build command:** `npm install`
 - **Start command:** `node daemon.js`
-- **Environment variables:** set `GEMINI_API_KEY` and `TARGET_REPO_PATH` in the Render dashboard.
+- **Environment variables:** set `GEMINI_API_KEY` and `TARGET_REPO_PATH` (pointing at a repo already present on the instance) in the Render dashboard.
 
 ## Benchmark output
 

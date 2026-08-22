@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: anvil
+    runtime: node
+    plan: starter
+    buildCommand: >-
+      npm install &&
+      (test -d "$TARGET_REPO_PATH/.git" || git clone --depth 1 "$TARGET_REPO_GIT_URL" "$TARGET_REPO_PATH")
+    startCommand: node daemon.js
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TARGET_REPO_GIT_URL
+        sync: false
+      - key: TARGET_REPO_PATH
+        value: /opt/render/project/target-repo
