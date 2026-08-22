@@ -1,15 +1,36 @@
 import 'dotenv/config';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { injectChaos, restoreRepo } from './src/chaos-injector.js';
 import { executeCommand } from './src/executor.js';
 import { requestFix } from './src/gemini-agent.js';
 import { recordResult, recordBug } from './src/evaluator.js';
 
+const ANVIL_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const TARGET_REPO_PATH = path.resolve(process.env.TARGET_REPO_PATH || '.');
 const MIN_DELAY_MS = 10 * 60_000;
 const MAX_DELAY_MS = 15 * 60_000;
+
+// Confirmed live: when TARGET_REPO_PATH isn't set (e.g. a missing/deleted
+// .env), it silently defaulted to '.' and Anvil started chaos-injecting
+// itself — including its own package.json, whose corrupted "start" script
+// then got run as this scenario's test command and recursively re-launched
+// daemon.js. Now that Anvil ships as a git repo, restoreRepo()'s
+// `git reset --hard` / `git clean -fd` also stopped being harmless no-ops
+// against itself and can actually destroy untracked files (this is how the
+// real .env — including the API key — was lost). Refuse to start rather
+// than risk repeating that.
+if (TARGET_REPO_PATH === ANVIL_ROOT) {
+  console.error(
+    `FATAL: TARGET_REPO_PATH resolves to Anvil's own directory (${ANVIL_ROOT}).\n` +
+    `This usually means TARGET_REPO_PATH isn't set (check .env exists and is loaded) and\n` +
+    `defaulted to the current directory. Refusing to start: chaos-injecting Anvil's own\n` +
+    `source, including a destructive git reset/clean against itself, is not safe.`
+  );
+  process.exit(1);
+}
 
 function sleep(ms) {
   return new Promise((resolve) => {
