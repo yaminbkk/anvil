@@ -62,6 +62,25 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Picks a file that actually runs clean (`exitCode === 0`) via `node "<file>"`
+// on its pristine, un-chaosed content. Source files that import sibling
+// project modules routinely fail standalone execution on their own — wrong
+// import resolution, missing CLI args, etc. — with zero chaos involved. Using
+// one of those as a target makes the scenario un-passable no matter how
+// correct Gemini's fix is, since the post-fix verify re-runs the same command
+// against a file that was never runnable to begin with (mirrors the same
+// class of bug already fixed for scenarioInvalidCliFlag/scenarioMissingEnv).
+async function pickRunnableFile(repoPath, files, maxAttempts = 8) {
+  const candidates = [...files];
+  for (let i = 0; i < maxAttempts && candidates.length > 0; i++) {
+    const idx = Math.floor(Math.random() * candidates.length);
+    const [file] = candidates.splice(idx, 1);
+    const baseline = await executeCommand(`node "${file}"`, repoPath, 15000);
+    if (baseline.exitCode === 0) return file;
+  }
+  return null;
+}
+
 function readPackageJson(repoPath) {
   const pkgPath = path.join(repoPath, 'package.json');
   try {
@@ -83,9 +102,9 @@ function toSingleQuotedJsString(str) {
 
 // --- 8 chaos scenarios -----------------------------------------------------
 
-function scenarioSyntaxError(repoPath) {
+async function scenarioSyntaxError(repoPath) {
   const files = listSourceFiles(repoPath);
-  const file = pickRandom(files);
+  const file = await pickRunnableFile(repoPath, files);
   if (!file) return null;
 
   fs.appendFileSync(
@@ -108,9 +127,9 @@ function scenarioSyntaxError(repoPath) {
   };
 }
 
-function scenarioMissingImport(repoPath) {
+async function scenarioMissingImport(repoPath) {
   const files = listSourceFiles(repoPath);
-  const file = pickRandom(files);
+  const file = await pickRunnableFile(repoPath, files);
   if (!file) return null;
 
   const { pkg } = readPackageJson(repoPath);
@@ -186,9 +205,9 @@ function scenarioBrokenJsonConfig(repoPath) {
   };
 }
 
-function scenarioTypeMismatch(repoPath) {
+async function scenarioTypeMismatch(repoPath) {
   const files = listSourceFiles(repoPath);
-  const file = pickRandom(files);
+  const file = await pickRunnableFile(repoPath, files);
   if (!file) return null;
 
   fs.appendFileSync(
@@ -360,14 +379,14 @@ const SCENARIOS = [
  * Falls back to the next scenario if the chosen one can't find a suitable
  * target (e.g. an empty repo with no source files), so a run never stalls.
  * @param {string} repoPath - Absolute path to the target repository.
- * @returns {{scenarioId:number, scenarioName:string, description:string, targetFile:string|null, testCommand:string}}
+ * @returns {Promise<{scenarioId:number, scenarioName:string, description:string, targetFile:string|null, testCommand:string}>}
  */
-export function injectChaos(repoPath) {
+export async function injectChaos(repoPath) {
   const order = [...SCENARIOS].sort(() => Math.random() - 0.5);
 
   for (const scenarioFn of order) {
     try {
-      const result = scenarioFn(repoPath);
+      const result = await scenarioFn(repoPath);
       if (result) return result;
     } catch {
       // try next scenario

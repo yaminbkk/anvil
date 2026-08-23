@@ -82,7 +82,7 @@ async function runCycle(round) {
 
   try {
     console.log(chalk.yellow(`\n[Round ${round}] Injecting chaos into ${TARGET_REPO_PATH} ...`));
-    scenario = injectChaos(TARGET_REPO_PATH);
+    scenario = await injectChaos(TARGET_REPO_PATH);
     console.log(chalk.yellow(`[Round ${round}] Scenario: ${chalk.bold(scenario.scenarioName)} - ${scenario.description}`));
 
     console.log(chalk.gray(`[Round ${round}] Running: ${scenario.testCommand}`));
